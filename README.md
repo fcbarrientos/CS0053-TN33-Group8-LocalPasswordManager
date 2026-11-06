@@ -2,7 +2,7 @@
 
 ## Reminder
 
-Put all `.txt` files and `.venv` folder into `.gitignore`. DO NOT PUSH TO MAIN.
+Put all `.txt` files into `.gitignore`. DO NOT PUSH TO MAIN.
 
 ## Branch overview
 
