@@ -72,15 +72,44 @@ bool userLogin(const vector<user>& users, string& emailLoggedIn) {
     return false;
 }
 
-int main() {
-    vector<user> users = loadUsersFromTextDB(usersFileDB);
-    //siguro maglagay ng checkpoint if empty yung DB
+bool userLogout() {
+    cout << "\n";    
+    cout << "                     You have been logged out.                    " << endl;
+    cout << border << endl;
 
-    string currentUser;
-    while (!userLogin(users, currentUser)) {
-        if (!cin) return 0; 
+    string choice;
+    while (true) {
+        cout << "Do you want to log in again? (y/n): "; 
+        if (!getline(cin, choice)) {
+            return false;
+        } else {
+            if (choice == "y" || choice == "Y") {
+                return true; 
+            }
+            else if (choice == "n" || choice == "N") {
+                cout << "Thank you for using LPMS! Bye :)" << endl; //LMPS muna hahaha abbreviation 
+                return false; 
+            }
+            else {
+                cout << "Invalid input. Please enter 'y' or 'n'." << endl; 
+            }
+        }
     }
-    
-    cout << "You are logged in as " << currentUser << endl;
+}
+
+int main() {
+    //GENERATED THIS IS FOR TESTING PURPOSES HUHU, D MUNA AKO GUMAWA NG MENU
+    bool running = true;
+    while (running) {
+        vector<user> users = loadUsersFromTextDB(usersFileDB);   // reloaded each round
+        if (users.empty()) return 1;
+
+        string currentUser;
+        while (!userLogin(users, currentUser)) {
+            if (!cin) return 0;
+        }
+
+        running = userLogout();
+    }
     return 0;
 }
