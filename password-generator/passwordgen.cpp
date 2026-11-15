@@ -28,7 +28,7 @@ string passwordGenerator::generate(const passwordOptions& options) {
 }
 
 // build the character pool so generate() has data on what to generate
-auto makePool(const passwordOptions& options) {
+string auto makePool(const passwordOptions& options) {
     string pool = "";
     if (options.useUppercase) for (char c = 'A'; c <= 'Z'; ++c) pool += c;
     if (options.useLowercase) for (char c = 'a'; c <= 'z'; ++c) pool += c;
