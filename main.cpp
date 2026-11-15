@@ -4,6 +4,8 @@
 #include <vector>
 #include <chrono>
 
+#include "password-generator/passwordgen.h"
+
 using namespace std;
 using Clock = chrono::steady_clock;
 
@@ -11,24 +13,26 @@ const string border = "=========================================================
 const string usersFileDB = "users.txt"; //I will only add my fake credentials here sa file, add yours na lang guys
 const int maxAttempts = 3;
 const chrono::seconds lockoutDuration(15);
-
-struct user {
+struct Credential {
     string email;
     string password;
+    string appName;
 }; //naka-structure para nasa iisang unit lang tong dalawa since codependent sila sa isa't isa
+// pinalitan ko Credential
 
-vector<user> loadUsersFromTextDB(const string& filename) { //I used vector instead of an array kasi suggested 
-    vector<user> users;
+
+vector<Credential> loadUsersFromTextDB(const string& filename) { //I used vector instead of an array kasi suggested 
+    vector<Credential> users;
     ifstream file(filename);
-    user u;
+    Credential u;
     while (getline(file, u.email, ':') && getline(file, u.password)) {
         users.push_back(u);
     }
     return users;
 }
 
-bool credentialsMatch(const string& email, const string& password, const vector<user>& users) {
-    for (const user& u : users) {
+bool credentialsMatch(const string& email, const string& password, const vector<Credential>& users) {
+    for (const Credential& u : users) {
         if (u.email == email && u.password == password) {
             return true;
         }
@@ -36,7 +40,7 @@ bool credentialsMatch(const string& email, const string& password, const vector<
     return false;
 }
 
-bool userLogin(const vector<user>& users, string& emailLoggedIn) {
+bool userLogin(const vector<Credential>& users, string& emailLoggedIn) {
     static int attempts = 0;
     static Clock::time_point lockoutUntil = Clock::time_point::min();
     string email, password;
@@ -97,11 +101,72 @@ bool userLogout() {
     }
 }
 
+// YOOHOO DITO SI SAVING CONTENT TO FILE
+void saveCredentialToFile(const string& userEmail, Credential &cred) {
+    // [GOOGLE.COM] usernumber1@yahoo.com | passwordnumber1HEHE!
+    string filename = userEmail + ".txt";
+    ofstream outFile(filename, ios::app); // append
+    if (outFile.is_open()) {
+        outFile << "[" << cred.appName << "] " << cred.email << " | " << cred.password << "\n";
+        outFile.close();
+    } else {
+        cout << "Error: Could not open file to save password.\n"; // pangsalo lang to pag may nangyaring ewan
+    }
+}
+
+void addPassword(const string& currentUserEmail) {
+    Credential cred;
+    string choice;
+
+    cout << "\n" << border << "\n";
+    cout << "                   [3] Add Password\n";
+    cout << border << "\n";
+
+    cout << "Enter App / Website Name: ";
+    getline(cin, cred.appName);
+
+    cout << "Link oyur logged in email (" << currentUserEmail << ") to this app? (y/n): ";
+    getline(cin, choice);
+    if (choice == "y" || choice == "Y") {
+        cred.email = currentUserEmail;
+    } else {
+        cout << "Enter custom email / username for " << cred.appName << ": ";
+        getline(cin, cred.email);
+    }
+
+    cout << "Do you want to generate a password? (y/n): ";
+    getline(cin, choice);
+
+    if (choice == "y" || choice == "Y") {
+        passwordGenerator generator;
+        passwordOptions options;
+
+        cout << "Enter desired length (default 12, min 8, max 25): ";
+        string lenStr;
+        getline(cin, lenStr);
+        if (!lenStr.empty()) {
+            int len = stoi(lenStr);
+            options.length = (len >= 8 && len <= 25) ? len : 12;
+        } else {
+            options.length = 12;
+        }
+
+        cred.password = generator.generate(options);
+        cout << "Generated Password: " << cred.password << "\n";
+    } else {
+        cout << "Enter Password: ";
+        getline(cin, cred.password);
+    }
+
+    saveCredentialToFile(currentUserEmail, cred);
+    cout << "\Password for [" << cred.appName << "] successfully saved!\n";
+}
+
 int main() {
     //GENERATED THIS IS FOR TESTING PURPOSES HUHU, D MUNA AKO GUMAWA NG MENU
     bool running = true;
     while (running) {
-        vector<user> users = loadUsersFromTextDB(usersFileDB);   // reloaded each round
+        vector<Credential> users = loadUsersFromTextDB(usersFileDB);   // reloaded each round
         if (users.empty()) return 1;
 
         string currentUser;

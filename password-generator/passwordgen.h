@@ -13,6 +13,6 @@ struct passwordOptions {
 
 class passwordGenerator {
     public:
-        string generate();
+        string generate(const passwordOptions& options);
         constexpr auto makePool(const passwordOptions& options);
 };
