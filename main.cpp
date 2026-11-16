@@ -1,11 +1,10 @@
 #include <chrono>
-#include <algorithm>
-#include <cctype>
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <thread>
 #include <vector>
+#include <algorithm>
+#include <cctype>
 
 #include "password-generator/passwordgen.h"
 
@@ -50,9 +49,7 @@ bool userLogin(const vector<Credential>& users, string& emailLoggedIn) {
     string password;
 
     if (Clock::now() < lockoutUntil) {
-        cout << "Login is temporarily locked. Waiting for the 15-second cooldown...\n";
-        this_thread::sleep_until(lockoutUntil);
-        attempts = 0;
+        cout << "Login is temporarily locked. Please wait 15 seconds.\n";
         return false;
     }
     if (attempts >= maxAttempts) attempts = 0;
@@ -137,7 +134,9 @@ void printVaultSummary(const vector<Credential>& credentials) {
 
 string lowercase(string value) {
     transform(value.begin(), value.end(), value.begin(),
-              [](unsigned char character) { return static_cast<char>(tolower(character)); });
+              [](unsigned char character) {
+                  return static_cast<char>(tolower(character));
+              });
     return value;
 }
 
@@ -155,20 +154,31 @@ bool parseEntryNumber(const string& input, size_t entryCount, size_t& selected) 
 
 void browseManager(const string& currentUserEmail) {
     const vector<Credential> credentials = loadVault(currentUserEmail);
-    cout << "\n" << border << "\n             [6] Browse Password Manager\n"
-         << border << "\n";
-    if (credentials.empty()) return;
 
-    cout << "Search app/website or email (leave blank to show all): ";
+    cout << "\n" << border
+         << "\n             [6] Browse Password Manager\n"
+         << border << "\n";
+
+    if (credentials.empty()) {
+        cout << "No saved passwords found.\n";
+        return;
+    }
+
+    cout << "Search app/website or email "
+            "(leave blank to show all): ";
+
     string searchTerm;
     getline(cin, searchTerm);
 
     const string searchText = lowercase(searchTerm);
     vector<Credential> matchingCredentials;
+
     for (const Credential& credential : credentials) {
         const string appName = lowercase(credential.appName);
         const string email = lowercase(credential.email);
-        if (searchText.empty() || appName.find(searchText) != string::npos ||
+
+        if (searchText.empty() ||
+            appName.find(searchText) != string::npos ||
             email.find(searchText) != string::npos) {
             matchingCredentials.push_back(credential);
         }
@@ -178,20 +188,31 @@ void browseManager(const string& currentUserEmail) {
         cout << "No matching accounts found.\n";
         return;
     }
+
     printVaultSummary(matchingCredentials);
 
-    cout << "Enter an entry number to view its password, or 0 to return: ";
+    cout << "Enter an entry number to view its password, "
+            "or 0 to return: ";
+
     string input;
     getline(cin, input);
-    if (input == "0") return;
+
+    if (input == "0") {
+        return;
+    }
 
     size_t selected = 0;
+
     if (!parseEntryNumber(input, matchingCredentials.size(), selected)) {
         cout << "Invalid entry number. Returning to the menu.\n";
         return;
     }
-    cout << "Password for [" << matchingCredentials[selected].appName << "]: "
-         << matchingCredentials[selected].password << '\n';
+
+    cout << "Password for ["
+         << matchingCredentials[selected].appName
+         << "]: "
+         << matchingCredentials[selected].password
+         << '\n';
 }
 
 void deletePassword(const string& currentUserEmail) {
