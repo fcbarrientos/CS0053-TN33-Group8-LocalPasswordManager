@@ -14,5 +14,6 @@ struct passwordOptions {
 class passwordGenerator {
     public:
         string generate(const passwordOptions& options);
-        constexpr auto makePool(const passwordOptions& options);
+    private:
+        string makePool(const passwordOptions& options);
 };
