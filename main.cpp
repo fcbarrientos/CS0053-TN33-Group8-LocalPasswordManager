@@ -1,8 +1,8 @@
-#include <chrono>
-#include <fstream>
 #include <iostream>
-#include <string>
+#include <fstream>
+#include <string> 
 #include <vector>
+#include <chrono>
 #include <algorithm>
 #include <cctype>
 
@@ -12,32 +12,32 @@ using namespace std;
 using Clock = chrono::steady_clock;
 
 const string border = "==================================================================";
-const string usersFileDB = "test_acc/users.txt";
+const string usersFileDB = "users.txt"; //I will only add my fake credentials here sa file, add yours na lang guys
 const int maxAttempts = 3;
 const chrono::seconds lockoutDuration(15);
-
 struct Credential {
     string email;
     string password;
     string appName;
-};
+}; //naka-structure para nasa iisang unit lang tong dalawa since codependent sila sa isa't isa
+// pinalitan ko Credential
 
-string vaultFilename(const string& userEmail) { return userEmail + ".txt"; }
 
-vector<Credential> loadUsersFromTextDB(const string& filename) {
+vector<Credential> loadUsersFromTextDB(const string& filename) { //I used vector instead of an array kasi suggested 
     vector<Credential> users;
     ifstream file(filename);
-    Credential user;
-    while (getline(file, user.email, ':') && getline(file, user.password)) {
-        if (!user.email.empty() && !user.password.empty()) users.push_back(user);
+    Credential u;
+    while (getline(file, u.email, ':') && getline(file, u.password)) {
+        users.push_back(u);
     }
     return users;
 }
 
-bool credentialsMatch(const string& email, const string& password,
-                      const vector<Credential>& users) {
-    for (const Credential& user : users) {
-        if (user.email == email && user.password == password) return true;
+bool credentialsMatch(const string& email, const string& password, const vector<Credential>& users) {
+    for (const Credential& u : users) {
+        if (u.email == email && u.password == password) {
+            return true;
+        }
     }
     return false;
 }
@@ -45,94 +45,153 @@ bool credentialsMatch(const string& email, const string& password,
 bool userLogin(const vector<Credential>& users, string& emailLoggedIn) {
     static int attempts = 0;
     static Clock::time_point lockoutUntil = Clock::time_point::min();
-    string email;
-    string password;
+    string email, password;
 
+    //etong block for lockout mechanism, i tried using threads para sa countdown pero d ko ma-implement  
     if (Clock::now() < lockoutUntil) {
-        cout << "Login is temporarily locked. Please wait 15 seconds.\n";
         return false;
     }
-    if (attempts >= maxAttempts) attempts = 0;
-
-    cout << "\n" << border << "\n"
-         << "             Welcome User! Enter Credentials to Sign-in\n"
-         << border << "\n";
-    cout << "Email: ";
-    getline(cin, email);
-    cout << "Password: ";
-    getline(cin, password);
-    if (!cin) return false;
+    if (attempts >= maxAttempts) attempts = 0; //reset attempts after isang lockout period
+    
+    cout << "\n" << border << endl;
+    cout << "             Welcome User! Enter Credentials to Sign-in           " << endl;
+    cout << border << endl;
+    cout << "Email: "; getline(cin, email);
+    cout << "Password: "; getline(cin, password);
+    
+    if (!cin) return false; //input failure 
 
     if (credentialsMatch(email, password, users)) {
-        attempts = 0;
-        emailLoggedIn = email;
-        cout << "Login Successful!\n";
-        return true;
+            attempts = 0; //reset attempts on successful login
+            emailLoggedIn = email;
+            cout << "Login Successful!" << endl;
+            return true;
+    } else {
+        attempts++;
+        cout << "Login Failed! You have used " << attempts << " of " << maxAttempts << " attempts." << endl;
+            if (attempts >= maxAttempts) {
+                lockoutUntil = Clock::now() + lockoutDuration;
+                cout << "Too many failed attempts. Wait for 15 seconds before trying again." << endl;
+            }
     }
 
-    ++attempts;
-    cout << "Login Failed! You have used " << attempts << " of "
-         << maxAttempts << " attempts.\n";
-    if (attempts >= maxAttempts) {
-        lockoutUntil = Clock::now() + lockoutDuration;
-        cout << "Too many failed attempts. Wait for 15 seconds before trying again.\n";
-    }
     return false;
 }
 
-vector<Credential> loadVault(const string& userEmail) {
+bool userLogout() {
+    cout << "\n";    
+    cout << "                     You have been logged out.                    " << endl;
+    cout << border << endl;
+
+    string choice;
+    while (true) {
+        cout << "Do you want to log in again? (y/n): "; 
+        if (!getline(cin, choice)) {
+            return false;
+        } else {
+            if (choice == "y" || choice == "Y") {
+                return true; 
+            }
+            else if (choice == "n" || choice == "N") {
+                cout << "Thank you for using LPMS! Bye :)" << endl; //LMPS muna hahaha abbreviation 
+                return false; 
+            }
+            else {
+                cout << "Invalid input. Please enter 'y' or 'n'." << endl; 
+            }
+        }
+    }
+}
+
+// YOOHOO DITO SI SAVING CONTENT TO FILE
+void saveCredentialToFile(const string& userEmail, Credential &cred) {
+    // [GOOGLE.COM] usernumber1@yahoo.com | passwordnumber1HEHE!
+    string filename = userEmail + ".txt";
+    ofstream outFile(filename, ios::app); // append
+    if (outFile.is_open()) {
+        outFile << "[" << cred.appName << "] " << cred.email << " | " << cred.password << "\n";
+        outFile.close();
+    } else {
+        cout << "Error: Could not open file to save password.\n"; // pangsalo lang to pag may nangyaring ewan
+    }
+}
+
+void addPassword(const string& currentUserEmail) {
+    Credential cred;
+    string choice;
+
+    cout << "\n" << border << "\n";
+    cout << "                   [3] Add Password\n";
+    cout << border << "\n";
+
+    cout << "Enter App / Website Name: ";
+    getline(cin, cred.appName);
+
+    cout << "Link oyur logged in email (" << currentUserEmail << ") to this app? (y/n): ";
+    getline(cin, choice);
+    if (choice == "y" || choice == "Y") {
+        cred.email = currentUserEmail;
+    } else {
+        cout << "Enter custom email / username for " << cred.appName << ": ";
+        getline(cin, cred.email);
+    }
+
+    cout << "Do you want to generate a password? (y/n): ";
+    getline(cin, choice);
+
+    if (choice == "y" || choice == "Y") {
+        passwordGenerator generator;
+        passwordOptions options;
+
+        cout << "Enter desired length (default 12, min 8, max 25): ";
+        string lenStr;
+        getline(cin, lenStr);
+        if (!lenStr.empty()) {
+            int len = stoi(lenStr);
+            options.length = (len >= 8 && len <= 25) ? len : 12;
+        } else {
+            options.length = 12;
+        }
+
+        cred.password = generator.generate(options);
+        cout << "Generated Password: " << cred.password << "\n";
+    } else {
+        cout << "Enter Password: ";
+        getline(cin, cred.password);
+    }
+
+    saveCredentialToFile(currentUserEmail, cred);
+    cout << "\Password for [" << cred.appName << "] successfully saved!\n";
+}
+
+// PART 6: Browse saved passwords without revealing passwords by default.
+vector<Credential> loadSavedPasswords(const string& userEmail) {
     vector<Credential> credentials;
-    ifstream file(vaultFilename(userEmail));
+    ifstream file(userEmail + ".txt");
     string line;
+
     while (getline(file, line)) {
-        if (line.size() < 4 || line.front() != '[') continue;
         const size_t appEnd = line.find("] ");
-        const size_t emailStart = appEnd == string::npos ? string::npos : appEnd + 2;
+        if (line.empty() || line.front() != '[' || appEnd == string::npos) {
+            continue;
+        }
+
+        const size_t emailStart = appEnd + 2;
         const size_t separator = line.find(" | ", emailStart);
-        if (appEnd == string::npos || separator == string::npos) continue;
+        if (separator == string::npos) {
+            continue;
+        }
 
         Credential credential;
         credential.appName = line.substr(1, appEnd - 1);
         credential.email = line.substr(emailStart, separator - emailStart);
         credential.password = line.substr(separator + 3);
-        if (!credential.appName.empty() && !credential.email.empty()) {
-            credentials.push_back(credential);
-        }
+        credentials.push_back(credential);
     }
     return credentials;
 }
 
-bool saveVault(const string& userEmail, const vector<Credential>& credentials) {
-    ofstream file(vaultFilename(userEmail), ios::trunc);
-    if (!file) return false;
-    for (const Credential& credential : credentials) {
-        file << "[" << credential.appName << "] " << credential.email
-             << " | " << credential.password << '\n';
-    }
-    return true;
-}
-
-void saveCredentialToFile(const string& userEmail, const Credential& credential) {
-    vector<Credential> credentials = loadVault(userEmail);
-    credentials.push_back(credential);
-    if (!saveVault(userEmail, credentials)) {
-        cout << "Error: Could not open the password vault.\n";
-    }
-}
-
-void printVaultSummary(const vector<Credential>& credentials) {
-    if (credentials.empty()) {
-        cout << "No saved passwords found.\n";
-        return;
-    }
-    cout << "\nSaved accounts (passwords are hidden):\n";
-    for (size_t i = 0; i < credentials.size(); ++i) {
-        cout << i + 1 << ". [" << credentials[i].appName << "] "
-             << credentials[i].email << " | ********\n";
-    }
-}
-
-string lowercase(string value) {
+string lowercaseText(string value) {
     transform(value.begin(), value.end(), value.begin(),
               [](unsigned char character) {
                   return static_cast<char>(tolower(character));
@@ -140,46 +199,55 @@ string lowercase(string value) {
     return value;
 }
 
-bool parseEntryNumber(const string& input, size_t entryCount, size_t& selected) {
+void showSavedPasswords(const vector<Credential>& credentials) {
+    if (credentials.empty()) {
+        cout << "No saved passwords found.\n";
+        return;
+    }
+
+    cout << "\nSaved accounts (passwords are hidden):\n";
+    for (size_t i = 0; i < credentials.size(); ++i) {
+        cout << i + 1 << ". [" << credentials[i].appName << "] "
+             << credentials[i].email << " | ********\n";
+    }
+}
+
+bool getEntryNumber(const string& input, size_t entryCount, size_t& selected) {
     try {
-        size_t consumed = 0;
-        const unsigned long value = stoul(input, &consumed);
-        if (consumed != input.size() || value == 0 || value > entryCount) return false;
-        selected = static_cast<size_t>(value - 1);
+        size_t charactersRead = 0;
+        const unsigned long number = stoul(input, &charactersRead);
+        if (charactersRead != input.size() || number == 0 || number > entryCount) {
+            return false;
+        }
+        selected = static_cast<size_t>(number - 1);
         return true;
     } catch (...) {
         return false;
     }
 }
 
-void browseManager(const string& currentUserEmail) {
-    const vector<Credential> credentials = loadVault(currentUserEmail);
+void browsePasswordManager(const string& currentUserEmail) {
+    const vector<Credential> allCredentials = loadSavedPasswords(currentUserEmail);
 
-    cout << "\n" << border
-         << "\n             [6] Browse Password Manager\n"
-         << border << "\n";
+    cout << "\n" << border << endl;
+    cout << "                  [6] Browse Password Manager" << endl;
+    cout << border << endl;
 
-    if (credentials.empty()) {
+    if (allCredentials.empty()) {
         cout << "No saved passwords found.\n";
         return;
     }
 
-    cout << "Search app/website or email "
-            "(leave blank to show all): ";
-
+    cout << "Search app / website or email (leave blank to show all): ";
     string searchTerm;
     getline(cin, searchTerm);
 
-    const string searchText = lowercase(searchTerm);
+    const string searchText = lowercaseText(searchTerm);
     vector<Credential> matchingCredentials;
-
-    for (const Credential& credential : credentials) {
-        const string appName = lowercase(credential.appName);
-        const string email = lowercase(credential.email);
-
+    for (const Credential& credential : allCredentials) {
         if (searchText.empty() ||
-            appName.find(searchText) != string::npos ||
-            email.find(searchText) != string::npos) {
+            lowercaseText(credential.appName).find(searchText) != string::npos ||
+            lowercaseText(credential.email).find(searchText) != string::npos) {
             matchingCredentials.push_back(credential);
         }
     }
@@ -189,46 +257,59 @@ void browseManager(const string& currentUserEmail) {
         return;
     }
 
-    printVaultSummary(matchingCredentials);
-
-    cout << "Enter an entry number to view its password, "
-            "or 0 to return: ";
-
+    showSavedPasswords(matchingCredentials);
+    cout << "Enter an entry number to view its password, or 0 to return: ";
     string input;
     getline(cin, input);
-
     if (input == "0") {
         return;
     }
 
     size_t selected = 0;
-
-    if (!parseEntryNumber(input, matchingCredentials.size(), selected)) {
+    if (!getEntryNumber(input, matchingCredentials.size(), selected)) {
         cout << "Invalid entry number. Returning to the menu.\n";
         return;
     }
 
-    cout << "Password for ["
-         << matchingCredentials[selected].appName
-         << "]: "
-         << matchingCredentials[selected].password
-         << '\n';
+    cout << "Password for [" << matchingCredentials[selected].appName << "]: "
+         << matchingCredentials[selected].password << '\n';
+}
+
+// PART 5: Delete one saved password after displaying a masked list and confirmation.
+bool rewritePasswordFile(const string& userEmail,
+                         const vector<Credential>& credentials) {
+    ofstream file(userEmail + ".txt", ios::trunc);
+    if (!file.is_open()) {
+        return false;
+    }
+
+    for (const Credential& credential : credentials) {
+        file << "[" << credential.appName << "] " << credential.email
+             << " | " << credential.password << '\n';
+    }
+    return true;
 }
 
 void deletePassword(const string& currentUserEmail) {
-    vector<Credential> credentials = loadVault(currentUserEmail);
-    cout << "\n" << border << "\n             [5] Delete Password\n"
-         << border << "\n";
-    printVaultSummary(credentials);
-    if (credentials.empty()) return;
+    vector<Credential> credentials = loadSavedPasswords(currentUserEmail);
+
+    cout << "\n" << border << endl;
+    cout << "                    [5] Delete Password" << endl;
+    cout << border << endl;
+    showSavedPasswords(credentials);
+    if (credentials.empty()) {
+        return;
+    }
 
     cout << "Enter the entry number to delete, or 0 to cancel: ";
     string input;
     getline(cin, input);
-    if (input == "0") return;
+    if (input == "0") {
+        return;
+    }
 
     size_t selected = 0;
-    if (!parseEntryNumber(input, credentials.size(), selected)) {
+    if (!getEntryNumber(input, credentials.size(), selected)) {
         cout << "Invalid entry number. Nothing was deleted.\n";
         return;
     }
@@ -244,110 +325,54 @@ void deletePassword(const string& currentUserEmail) {
 
     const string deletedApp = credentials[selected].appName;
     credentials.erase(credentials.begin() + static_cast<long>(selected));
-    if (saveVault(currentUserEmail, credentials)) {
+    if (rewritePasswordFile(currentUserEmail, credentials)) {
         cout << "Deleted [" << deletedApp << "] successfully.\n";
     } else {
-        cout << "Error: Could not update the password vault.\n";
+        cout << "Error: Could not update the password file.\n";
     }
 }
 
-void addPassword(const string& currentUserEmail) {
-    Credential credential;
-    string choice;
-    cout << "\n" << border << "\n                   [3] Add Password\n"
-         << border << "\n";
-    cout << "Enter App / Website Name: ";
-    getline(cin, credential.appName);
-    if (credential.appName.empty()) {
-        cout << "App / Website Name cannot be empty.\n";
-        return;
-    }
-
-    cout << "Link your logged-in email (" << currentUserEmail << ") to this app? (y/n): ";
-    getline(cin, choice);
-    if (choice == "y" || choice == "Y") {
-        credential.email = currentUserEmail;
-    } else {
-        cout << "Enter custom email / username: ";
-        getline(cin, credential.email);
-    }
-
-    cout << "Do you want to generate a password? (y/n): ";
-    getline(cin, choice);
-    if (choice == "y" || choice == "Y") {
-        passwordGenerator generator;
-        passwordOptions options;
-        cout << "Enter desired length (default 12, min 8, max 25): ";
-        string lengthInput;
-        getline(cin, lengthInput);
-        options.length = 12;
-        if (!lengthInput.empty()) {
-            try {
-                const int length = stoi(lengthInput);
-                if (length >= 8 && length <= 25) options.length = length;
-                else cout << "Invalid length. Using default length 12.\n";
-            } catch (...) {
-                cout << "Invalid length. Using default length 12.\n";
-            }
-        }
-        credential.password = generator.generate(options);
-        cout << "Generated Password: " << credential.password << '\n';
-    } else {
-        cout << "Enter Password: ";
-        getline(cin, credential.password);
-    }
-
-    if (credential.email.empty() || credential.password.empty()) {
-        cout << "Email and password cannot be empty. Nothing was saved.\n";
-        return;
-    }
-    saveCredentialToFile(currentUserEmail, credential);
-    cout << "Password for [" << credential.appName << "] successfully saved!\n";
-}
-
-bool userLogout() {
-    cout << "\nYou have been logged out.\n" << border << '\n';
-    string choice;
+void passwordManagerMenu(const string& currentUserEmail) {
     while (true) {
-        cout << "Do you want to log in again? (y/n): ";
-        if (!getline(cin, choice)) return false;
-        if (choice == "y" || choice == "Y") return true;
-        if (choice == "n" || choice == "N") {
-            cout << "Thank you for using LPMS! Bye :)\n";
-            return false;
-        }
-        cout << "Invalid input. Please enter 'y' or 'n'.\n";
-    }
-}
+        cout << "\n" << border << endl;
+        cout << "                  LOCAL PASSWORD MANAGER" << endl;
+        cout << border << endl;
+        cout << "[3] Add password" << endl;
+        cout << "[5] Delete password" << endl;
+        cout << "[6] Browse manager" << endl;
+        cout << "[7] Logout" << endl;
+        cout << "Choose an option: ";
 
-void managerMenu(const string& currentUserEmail) {
-    while (true) {
-        cout << "\n" << border << "\n                  LOCAL PASSWORD MANAGER\n"
-             << border << "\n[3] Add password\n[5] Delete password\n"
-             << "[6] Browse manager\n[7] Logout\nChoose an option: ";
         string choice;
         getline(cin, choice);
-        if (choice == "3") addPassword(currentUserEmail);
-        else if (choice == "5") deletePassword(currentUserEmail);
-        else if (choice == "6") browseManager(currentUserEmail);
-        else if (choice == "7") return;
-        else cout << "Invalid menu choice. Please choose 3, 5, 6, or 7.\n";
+        if (choice == "3") {
+            addPassword(currentUserEmail);
+        } else if (choice == "5") {
+            deletePassword(currentUserEmail);
+        } else if (choice == "6") {
+            browsePasswordManager(currentUserEmail);
+        } else if (choice == "7") {
+            return;
+        } else {
+            cout << "Invalid menu choice. Please choose 3, 5, 6, or 7.\n";
+        }
     }
 }
 
 int main() {
-    while (true) {
-        const vector<Credential> users = loadUsersFromTextDB(usersFileDB);
-        if (users.empty()) {
-            cerr << "Error: No fictional login account was found in " << usersFileDB << ".\n";
-            return 1;
-        }
+    //GENERATED THIS IS FOR TESTING PURPOSES HUHU, D MUNA AKO GUMAWA NG MENU
+    bool running = true;
+    while (running) {
+        vector<Credential> users = loadUsersFromTextDB(usersFileDB);   // reloaded each round
+        if (users.empty()) return 1;
 
         string currentUser;
         while (!userLogin(users, currentUser)) {
             if (!cin) return 0;
         }
-        managerMenu(currentUser);
-        if (!userLogout()) return 0;
+
+        passwordManagerMenu(currentUser);
+        running = userLogout();
     }
+    return 0;
 }
