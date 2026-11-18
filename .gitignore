@@ -1,4 +1,4 @@
-*.txt
+/lpms
+/*@*.txt
 *.exe
 .vscode/
-lpms*

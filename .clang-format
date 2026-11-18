@@ -1,0 +1,12 @@
+---
+Language: Cpp
+BasedonStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 120
+BreakBeforeBraces: Attach
+BreakStringLiterals: false
+ReflowComments: false
+SortIncludes: false
+PointerAlignment: Left

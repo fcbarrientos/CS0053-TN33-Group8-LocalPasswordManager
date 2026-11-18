@@ -21,7 +21,6 @@ struct Credential {
     string password;
     string appName;
 }; //naka-structure para nasa iisang unit lang tong dalawa since codependent sila sa isa't isa
-// pinalitan ko Credential
 
 
 vector<Credential> loadUsersFromTextDB(const string& filename) { //I used vector instead of an array kasi suggested 
@@ -98,8 +97,7 @@ string lowercaseText(string value) {
     return value;
 }
 
-// Every rejection gets its own paragraph, so the retry prompt below it
-// does not run straight into the error text.
+// every rejection gets its own paragraph and space
 void printInputError(const string& message) {
     cout << "\n" << message << "\n\n";
 }
@@ -126,8 +124,7 @@ bool promptYesNo(const string& prompt, bool& answer) {
     }
 }
 
-// A hostname needs at least one dot so that "Google.com" and "x.com" pass
-// while "x" or "My Site" do not. The last label is treated as the TLD.
+// a hostname needs at least one dot so that "Google.com" and "x.com" pass
 bool isValidHostname(const string& host) {
     if (host.empty() || host.size() > 253) {
         return false;
@@ -266,8 +263,7 @@ bool readEmail(const string& prompt, string& email) {
     }
 }
 
-// Asks for the default 12 characters first and only then offers a custom
-// length, reprompting instead of silently falling back on bad input.
+// asks for the default 12 characters first and only then offers a custom length
 bool choosePasswordLength(int& length) {
     bool useDefault;
     if (!promptYesNo("Use the default password length (12 characters)? (y/n): ", useDefault)) {
