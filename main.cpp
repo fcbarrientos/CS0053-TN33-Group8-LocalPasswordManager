@@ -175,9 +175,7 @@ bool isValidHostname(const string& host) {
     return true;
 }
 
-// Website names are stored as the user types them (Google.com, not google.com),
-// but anything that could break the "[app] email | password" file format
-// or the domain shape is rejected.
+// stricter inputs for websites (needs a domain like .com)
 bool isValidWebsiteName(const string& name) { return isValidHostname(name); }
 
 bool isValidEmail(const string& email) {
@@ -208,57 +206,6 @@ bool isValidEmail(const string& email) {
 }
 
 vector<Credential> loadSavedPasswords(const string& userEmail); // defined in PART 6 below
-
-bool readWebsiteName(const vector<Credential>& existing, string& websiteName) {
-    while (true) {
-        cout << "Enter Website Name (e.g. Google.com or x.com): ";
-        string input;
-        if (!getline(cin, input)) {
-            return false;
-        }
-
-        const string candidate = trimText(input);
-        if (!isValidWebsiteName(candidate)) {
-            printInputError("Invalid website name. Use a plain domain such as Google.com or x.com "
-                            "(no spaces, no http://, and it must end with letters like .com).");
-            continue;
-        }
-
-        bool alreadySaved = false;
-        for (const Credential& credential : existing) {
-            if (lowercaseText(credential.appName) == lowercaseText(candidate)) {
-                alreadySaved = true;
-                break;
-            }
-        }
-        if (alreadySaved) {
-            printInputError("[" + candidate + "] is already saved. Use modify password instead.");
-            continue;
-        }
-
-        websiteName = candidate;
-        return true;
-    }
-}
-
-bool readEmail(const string& prompt, string& email) {
-    while (true) {
-        cout << prompt;
-        string input;
-        if (!getline(cin, input)) {
-            return false;
-        }
-
-        const string candidate = trimText(input);
-        if (!isValidEmail(candidate)) {
-            printInputError("Invalid email. It needs exactly one '@' and a domain, e.g. user@example.com.");
-            continue;
-        }
-
-        email = candidate;
-        return true;
-    }
-}
 
 // asks for the default 12 characters first and only then offers a custom length
 bool choosePasswordLength(int& length) {
@@ -324,6 +271,57 @@ void saveCredentialToFile(const string& userEmail, Credential& cred) {
     }
 }
 
+bool readWebsiteName(const vector<Credential>& existing, string& websiteName) {
+    while (true) {
+        cout << "Enter Website Name (e.g. Google.com or x.com): ";
+        string input;
+        if (!getline(cin, input)) {
+            return false;
+        }
+
+        const string candidate = trimText(input);
+        if (!isValidWebsiteName(candidate)) {
+            printInputError("Invalid website name. Use a plain domain such as Google.com or x.com "
+                            "(no spaces, no http://, and it must end with letters like .com).");
+            continue;
+        }
+
+        bool alreadySaved = false;
+        for (const Credential& credential : existing) {
+            if (lowercaseText(credential.appName) == lowercaseText(candidate)) {
+                alreadySaved = true;
+                break;
+            }
+        }
+        if (alreadySaved) {
+            printInputError("[" + candidate + "] is already saved. Use modify password instead.");
+            continue;
+        }
+
+        websiteName = candidate;
+        return true;
+    }
+}
+
+bool readEmail(const string& prompt, string& email) {
+    while (true) {
+        cout << prompt;
+        string input;
+        if (!getline(cin, input)) {
+            return false;
+        }
+
+        const string candidate = trimText(input);
+        if (!isValidEmail(candidate)) {
+            printInputError("Invalid email. It needs exactly one '@' and a domain, e.g. user@example.com.");
+            continue;
+        }
+
+        email = candidate;
+        return true;
+    }
+}
+
 void addPassword(const string& currentUserEmail) {
     Credential cred;
     bool useCurrentEmail;
@@ -370,6 +368,76 @@ void addPassword(const string& currentUserEmail) {
 
     saveCredentialToFile(currentUserEmail, cred);
     cout << "\nPassword for [" << cred.appName << "] successfully saved!\n";
+}
+
+void modifyPassword(const string& currentUserEmail) {
+    vector<Credential> credentials = loadSavedPasswords(currentUserEmail);
+
+    cout << "\n" << border << endl;
+    cout << "                              [2] Modify Password                                " << endl;
+    cout << border << endl;
+    showSavedPasswords(credentials);
+    if (credentials.empty()) {
+        return;
+    }
+
+    cout << "Enter the entry number to modify, or 0 to cancel: ";
+    string input;
+    getline(cin, input);
+    if (input == "0") {
+        return;
+    }
+
+    size_t selected = 0;
+    if (!getEntryNumber(input, credentials.size(), selected)) {
+        cout << "\nInvalid entry number. Nothing was modified.\n";
+        return;
+    }
+
+    Credential& cred = credentials[selected];
+
+    cout << "\nModifying entry " << (selected + 1) << " of " << credentials.size() << "\n";
+    cout << "Website: " << cred.appName << "   (cannot be changed)\n";
+    cout << "Email: " << cred.email << "   (cannot be changed)\n";
+    cout << "Only the password can be modified.\n";
+
+    bool generatePassword;
+    if (!promptYesNo("Do you want to generate a new password? (y/n): ", generatePassword)) {
+        return;
+    }
+    if (generatePassword) {
+        passwordGenerator generator;
+        passwordOptions options;
+
+        int length = 12;
+        if (!choosePasswordLength(length)) {
+            return;
+        }
+        options.length = length;
+
+        cred.password = generator.generate(options);
+        cout << "\nGenerated Password: " << cred.password << "\n";
+    } else {
+        cout << "Enter new password (leave blank to keep current): ";
+        getline(cin, input);
+        if (!input.empty())
+            cred.password = input;
+    }
+
+    bool saveChanges;
+    if (!promptYesNo("Save changes to [" + cred.appName + "]? (y/n): ", saveChanges)) {
+        return;
+    }
+    if (!saveChanges) {
+        cout << "\nModification cancelled. Nothing was changed.\n";
+        return;
+    }
+
+    if (rewritePasswordFile(currentUserEmail, credentials)) {
+        cout << "\nUpdated [" << cred.appName << "] successfully.\n";
+    } else {
+        cout << "\nError: Could not update the password file.\n";
+    }
 }
 
 // PART 6: Browse saved passwords without revealing passwords by default.
@@ -524,76 +592,6 @@ void deletePassword(const string& currentUserEmail) {
     credentials.erase(credentials.begin() + static_cast<long>(selected));
     if (rewritePasswordFile(currentUserEmail, credentials)) {
         cout << "\nDeleted [" << deletedApp << "] successfully.\n";
-    } else {
-        cout << "\nError: Could not update the password file.\n";
-    }
-}
-
-void modifyPassword(const string& currentUserEmail) {
-    vector<Credential> credentials = loadSavedPasswords(currentUserEmail);
-
-    cout << "\n" << border << endl;
-    cout << "                              [2] Modify Password                                " << endl;
-    cout << border << endl;
-    showSavedPasswords(credentials);
-    if (credentials.empty()) {
-        return;
-    }
-
-    cout << "Enter the entry number to modify, or 0 to cancel: ";
-    string input;
-    getline(cin, input);
-    if (input == "0") {
-        return;
-    }
-
-    size_t selected = 0;
-    if (!getEntryNumber(input, credentials.size(), selected)) {
-        cout << "\nInvalid entry number. Nothing was modified.\n";
-        return;
-    }
-
-    Credential& cred = credentials[selected];
-
-    cout << "\nModifying entry " << (selected + 1) << " of " << credentials.size() << "\n";
-    cout << "Website: " << cred.appName << "   (cannot be changed)\n";
-    cout << "Email: " << cred.email << "   (cannot be changed)\n";
-    cout << "Only the password can be modified.\n";
-
-    bool generatePassword;
-    if (!promptYesNo("Do you want to generate a new password? (y/n): ", generatePassword)) {
-        return;
-    }
-    if (generatePassword) {
-        passwordGenerator generator;
-        passwordOptions options;
-
-        int length = 12;
-        if (!choosePasswordLength(length)) {
-            return;
-        }
-        options.length = length;
-
-        cred.password = generator.generate(options);
-        cout << "\nGenerated Password: " << cred.password << "\n";
-    } else {
-        cout << "Enter new password (leave blank to keep current): ";
-        getline(cin, input);
-        if (!input.empty())
-            cred.password = input;
-    }
-
-    bool saveChanges;
-    if (!promptYesNo("Save changes to [" + cred.appName + "]? (y/n): ", saveChanges)) {
-        return;
-    }
-    if (!saveChanges) {
-        cout << "\nModification cancelled. Nothing was changed.\n";
-        return;
-    }
-
-    if (rewritePasswordFile(currentUserEmail, credentials)) {
-        cout << "\nUpdated [" << cred.appName << "] successfully.\n";
     } else {
         cout << "\nError: Could not update the password file.\n";
     }
