@@ -271,7 +271,7 @@ void saveCredentialToFile(const string& userEmail, Credential& cred) {
     }
 }
 
-bool readWebsiteName(const vector<Credential>& existing, string& websiteName) {
+bool readWebsiteName(string& websiteName) {
     while (true) {
         cout << "Enter Website Name (e.g. Google.com or x.com): ";
         string input;
@@ -283,18 +283,6 @@ bool readWebsiteName(const vector<Credential>& existing, string& websiteName) {
         if (!isValidWebsiteName(candidate)) {
             printInputError("Invalid website name. Use a plain domain such as Google.com or x.com "
                             "(no spaces, no http://, and it must end with letters like .com).");
-            continue;
-        }
-
-        bool alreadySaved = false;
-        for (const Credential& credential : existing) {
-            if (lowercaseText(credential.appName) == lowercaseText(candidate)) {
-                alreadySaved = true;
-                break;
-            }
-        }
-        if (alreadySaved) {
-            printInputError("[" + candidate + "] is already saved. Use modify password instead.");
             continue;
         }
 
@@ -330,7 +318,7 @@ void addPassword(const string& currentUserEmail) {
     cout << "                                  [1] Add Password                                 " << endl;
     cout << border << "\n";
 
-    if (!readWebsiteName(loadSavedPasswords(currentUserEmail), cred.appName)) {
+    if (!readWebsiteName(cred.appName)) {
         return;
     }
 
@@ -342,6 +330,17 @@ void addPassword(const string& currentUserEmail) {
     } else {
         if (!readEmail("Enter custom email for " + cred.appName + ": ", cred.email))
             return;
+    }
+
+    // One password per (website, email) pair. The same website with a
+    // different email is a separate account, so it stays allowed.
+    for (const Credential& saved : loadSavedPasswords(currentUserEmail)) {
+        if (lowercaseText(saved.appName) == lowercaseText(cred.appName) &&
+            lowercaseText(saved.email) == lowercaseText(cred.email)) {
+            cout << "\n[" << cred.appName << "] for " << cred.email
+                 << " is already saved. Use [2] Modify password to change its password.\n";
+            return;
+        }
     }
 
     bool generatePassword;
