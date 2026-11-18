@@ -12,7 +12,7 @@
 using namespace std;
 using Clock = chrono::steady_clock;
 
-const string border = "==================================================================";
+const string border = "=================================================================================";
 const string usersFileDB = "test_acc/users.txt"; //I will only add my fake credentials here sa file, add yours na lang guys
 const int maxAttempts = 3;
 const chrono::seconds lockoutDuration(15);
@@ -55,7 +55,7 @@ bool userLogin(const vector<Credential>& users, string& emailLoggedIn) {
     if (attempts >= maxAttempts) attempts = 0; //reset attempts after isang lockout period
     
     cout << "\n" << border << endl;
-    cout << "             Welcome User! Enter Credentials to Sign-in           " << endl;
+    cout << "                   Welcome User! Enter Credentials to Sign-in                    " << endl;
     cout << border << endl;
     cout << "Email: "; getline(cin, email);
     cout << "Password: "; getline(cin, password);
@@ -102,7 +102,7 @@ bool promptYesNo(const string& prompt, bool& answer) {
 
 bool userLogout() {
     cout << "\n";    
-    cout << "                     You have been logged out.                    " << endl;
+    cout << "                            You have been logged out.                            " << endl;
     cout << border << endl;
 
     bool logInAgain;
@@ -110,7 +110,7 @@ bool userLogout() {
         return false;
     }
     if (!logInAgain) {
-        cout << "Thank you for using LPMS! Bye :)" << endl;
+        cout << "\nThank you for using LPMS! Bye :)" << endl;
     }
     return logInAgain;
 }
@@ -133,7 +133,7 @@ void addPassword(const string& currentUserEmail) {
     bool useCurrentEmail;
 
     cout << "\n" << border << "\n";
-    cout << "                   [3] Add Password\n";
+    cout << "                                  [1] Add Password                                 " << endl;
     cout << border << "\n";
 
     cout << "Enter App / Website Name: ";
@@ -256,7 +256,7 @@ void browsePasswordManager(const string& currentUserEmail) {
     const vector<Credential> allCredentials = loadSavedPasswords(currentUserEmail);
 
     cout << "\n" << border << endl;
-    cout << "                  [6] Browse Password Manager" << endl;
+    cout << "                           [4] Browse Password Manager                           " << endl;
     cout << border << endl;
 
     if (allCredentials.empty()) {
@@ -279,7 +279,7 @@ void browsePasswordManager(const string& currentUserEmail) {
     }
 
     if (matchingCredentials.empty()) {
-        cout << "No matching accounts found.\n";
+        cout << "\nNo matching accounts found.\n";
         return;
     }
 
@@ -293,7 +293,7 @@ void browsePasswordManager(const string& currentUserEmail) {
 
     size_t selected = 0;
     if (!getEntryNumber(input, matchingCredentials.size(), selected)) {
-        cout << "Invalid entry number. Returning to the menu.\n";
+        cout << "\nInvalid entry number. Returning to the menu.\n";
         return;
     }
 
@@ -320,7 +320,7 @@ void deletePassword(const string& currentUserEmail) {
     vector<Credential> credentials = loadSavedPasswords(currentUserEmail);
 
     cout << "\n" << border << endl;
-    cout << "                    [5] Delete Password" << endl;
+    cout << "                               [3] Delete Password                               " << endl;
     cout << border << endl;
     showSavedPasswords(credentials);
     if (credentials.empty()) {
@@ -336,7 +336,7 @@ void deletePassword(const string& currentUserEmail) {
 
     size_t selected = 0;
     if (!getEntryNumber(input, credentials.size(), selected)) {
-        cout << "Invalid entry number. Nothing was deleted.\n";
+        cout << "\nInvalid entry number. Nothing was deleted.\n";
         return;
     }
 
@@ -347,16 +347,16 @@ void deletePassword(const string& currentUserEmail) {
         return;
     }
     if (!confirmDelete) {
-        cout << "Deletion cancelled.\n";
+        cout << "\nDeletion cancelled.\n";
         return;
     } 
 
     const string deletedApp = credentials[selected].appName;
     credentials.erase(credentials.begin() + static_cast<long>(selected));
     if (rewritePasswordFile(currentUserEmail, credentials)) {
-        cout << "Deleted [" << deletedApp << "] successfully.\n";
+        cout << "\nDeleted [" << deletedApp << "] successfully.\n";
     } else {
-        cout << "Error: Could not update the password file.\n";
+        cout << "\nError: Could not update the password file.\n";
     }
 }
 
@@ -364,7 +364,7 @@ void modifyPassword(const string& currentUserEmail) {
     vector<Credential> credentials = loadSavedPasswords(currentUserEmail);
 
     cout << "\n" << border << endl;
-    cout << "                    [4] Modify Password" << endl;
+    cout << "                              [2] Modify Password                                " << endl;
     cout << border << endl;
     showSavedPasswords(credentials);
     if (credentials.empty()) {
@@ -380,27 +380,25 @@ void modifyPassword(const string& currentUserEmail) {
 
     size_t selected = 0;
     if (!getEntryNumber(input, credentials.size(), selected)) {
-        cout << "Invalid entry number. Nothing was modified.\n";
+        cout << "\nInvalid entry number. Nothing was modified.\n";
         return;
     }
 
     Credential& cred = credentials[selected];
     const Credential original = cred; // para may reference sa default values
 
-    cout << "Modifying [" << original.appName << "] " << original.email << "\n";
+    cout << "\nModifying [" << original.appName << "] information for " << original.email << "\n";
     cout << "Leave a field blank to keep its current value.\n";
-
-    cout << "App / Website Name (" << original.appName << "): ";
-    getline(cin, input);
-    if (!input.empty()) cred.appName = input;
-
     cout << "Email / Username (" << original.email << "): ";
     getline(cin, input);
     if (!input.empty()) cred.email = input;
 
-    cout << "Do you want to generate a new password? (y/n): ";
-    getline(cin, input);
-    if (input == "y" || input == "Y") {
+    bool generatePassword;
+    if (!promptYesNo("Do you want to generate a new password? (y/n): ",
+                     generatePassword)) {
+        return;
+    }
+    if (generatePassword) {
         passwordGenerator generator;
         passwordOptions options;
 
@@ -421,54 +419,56 @@ void modifyPassword(const string& currentUserEmail) {
         }
 
         cred.password = generator.generate(options);
-        cout << "Generated Password: " << cred.password << "\n";
+        cout << "\nGenerated Password: " << cred.password << "\n";
     } else {
         cout << "Enter new password (leave blank to keep current): ";
         getline(cin, input);
         if (!input.empty()) cred.password = input;
     }
 
-    cout << "Save changes to [" << cred.appName << "]? (y/n): ";
-    getline(cin, input);
-    if (input != "y" && input != "Y") {
-        cout << "Modification cancelled. Nothing was changed.\n";
+    bool saveChanges;
+    if (!promptYesNo("Save changes to [" + cred.appName + "]? (y/n): ",
+                     saveChanges)) {
+        return;
+    }
+    if (!saveChanges) {
+        cout << "\nModification cancelled. Nothing was changed.\n";
         return;
     }
 
     if (rewritePasswordFile(currentUserEmail, credentials)) {
-        cout << "Updated [" << cred.appName << "] successfully.\n";
+        cout << "\nUpdated [" << cred.appName << "] successfully.\n";
     } else {
-        cout << "Error: Could not update the password file.\n";
+        cout << "\nError: Could not update the password file.\n";
     }
 }
 
 void passwordManagerMenu(const string& currentUserEmail) {
     while (true) {
         cout << "\n" << border << endl;
-        cout << "                  LOCAL PASSWORD MANAGER" << endl;
+        cout << "                               LOCAL PASSWORD MANAGER                            " << endl;
         cout << border << endl;
-        cout << "[3] Add password" << endl;
-        cout << "[4] Modify password" << endl;
-        cout << "[5] Delete password" << endl;
-        cout << "[6] Browse manager" << endl;
-        cout << "[7] Logout" << endl;
+        cout << "[1] Add password" << endl;
+        cout << "[2] Modify password" << endl;
+        cout << "[3] Delete password" << endl;
+        cout << "[4] Browse manager" << endl;
+        cout << "[0] Logout" << endl;
         cout << "Choose an option: ";
 
         string choice;
         getline(cin, choice);
-        if (choice == "3") {
+        if (choice == "1") {
             addPassword(currentUserEmail);
-        } else if (choice == "4") {
+        } else if (choice == "2") {
             modifyPassword(currentUserEmail);
-        } else if (choice == "5") {
-        } else if (choice == "5") {
+        } else if (choice == "3") {
             deletePassword(currentUserEmail);
-        } else if (choice == "6") {
+        } else if (choice == "4") {
             browsePasswordManager(currentUserEmail);
-        } else if (choice == "7") {
+        } else if (choice == "0") {
             return;
         } else {
-            cout << "Invalid menu choice. Please choose 3, 5, 6, or 7.\n";
+            cout << "\nInvalid menu choice. Please choose 1, 2, 3, 4, or 0.\n";
         }
     }
 }
