@@ -79,24 +79,227 @@ bool userLogin(const vector<Credential>& users, string& emailLoggedIn) {
     return false;
 }
 
+// PART 7: shared input helpers, validators, and the password-length prompt.
+
+string trimText(const string& value) {
+    const size_t first = value.find_first_not_of(" \t\r\n");
+    if (first == string::npos) {
+        return "";
+    }
+    const size_t last = value.find_last_not_of(" \t\r\n");
+    return value.substr(first, last - first + 1);
+}
+
+string lowercaseText(string value) {
+    transform(value.begin(), value.end(), value.begin(),
+              [](unsigned char character) {
+                  return static_cast<char>(tolower(character));
+              });
+    return value;
+}
+
+// Every rejection gets its own paragraph, so the retry prompt below it
+// does not run straight into the error text.
+void printInputError(const string& message) {
+    cout << "\n" << message << "\n\n";
+}
+
 bool promptYesNo(const string& prompt, bool& answer) {
-    string choice;
     while (true) {
         cout << prompt;
+        string choice;
         if (!getline(cin, choice)) {
             return false;
         }
 
-        if (choice == "y" || choice == "Y") {
+        choice = lowercaseText(trimText(choice));
+        if (choice == "y" || choice == "yes") {
             answer = true;
             return true;
         }
-        if (choice == "n" || choice == "N") {
+        if (choice == "n" || choice == "no") {
             answer = false;
             return true;
         }
 
-        cout << "Invalid input. Please enter 'y' or 'n'." << endl;
+        printInputError("Invalid input. Please enter 'y' or 'n'.");
+    }
+}
+
+// A hostname needs at least one dot so that "Google.com" and "x.com" pass
+// while "x" or "My Site" do not. The last label is treated as the TLD.
+bool isValidHostname(const string& host) {
+    if (host.empty() || host.size() > 253) {
+        return false;
+    }
+    if (host.front() == '.' || host.back() == '.') {
+        return false;
+    }
+
+    vector<string> labels;
+    size_t start = 0;
+    while (true) {
+        const size_t dot = host.find('.', start);
+        const size_t end = (dot == string::npos) ? host.size() : dot;
+        labels.push_back(host.substr(start, end - start));
+        if (dot == string::npos) {
+            break;
+        }
+        start = dot + 1;
+    }
+    if (labels.size() < 2) {
+        return false;
+    }
+
+    for (const string& label : labels) {
+        if (label.empty() || label.size() > 63) {
+            return false;
+        }
+        if (label.front() == '-' || label.back() == '-') {
+            return false;
+        }
+        for (char character : label) {
+            const unsigned char uc = static_cast<unsigned char>(character);
+            if (!isalnum(uc) && character != '-') {
+                return false;
+            }
+        }
+    }
+
+    const string& tld = labels.back();
+    if (tld.size() < 2) {
+        return false;
+    }
+    for (char character : tld) {
+        if (!isalpha(static_cast<unsigned char>(character))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Website names are stored as the user types them (Google.com, not google.com),
+// but anything that could break the "[app] email | password" file format
+// or the domain shape is rejected.
+bool isValidWebsiteName(const string& name) {
+    return isValidHostname(name);
+}
+
+bool isValidEmail(const string& email) {
+    if (email.empty() || email.size() > 254) {
+        return false;
+    }
+
+    const size_t at = email.find('@');
+    if (at == string::npos || email.find('@', at + 1) != string::npos) {
+        return false; // exactly one '@' is required
+    }
+
+    const string local = email.substr(0, at);
+    const string domain = email.substr(at + 1);
+    if (local.empty() || local.size() > 64) {
+        return false;
+    }
+    if (local.front() == '.' || local.back() == '.' ||
+        local.find("..") != string::npos) {
+        return false;
+    }
+    for (char character : local) {
+        const unsigned char uc = static_cast<unsigned char>(character);
+        if (!isalnum(uc) && string("._%+-").find(character) == string::npos) {
+            return false;
+        }
+    }
+    return isValidHostname(domain);
+}
+
+vector<Credential> loadSavedPasswords(const string& userEmail); // defined in PART 6 below
+
+bool readWebsiteName(const vector<Credential>& existing, string& websiteName) {
+    while (true) {
+        cout << "Enter Website Name (e.g. Google.com or x.com): ";
+        string input;
+        if (!getline(cin, input)) {
+            return false;
+        }
+
+        const string candidate = trimText(input);
+        if (!isValidWebsiteName(candidate)) {
+            printInputError("Invalid website name. Use a plain domain such as Google.com or x.com "
+                            "(no spaces, no http://, and it must end with letters like .com).");
+            continue;
+        }
+
+        bool alreadySaved = false;
+        for (const Credential& credential : existing) {
+            if (lowercaseText(credential.appName) == lowercaseText(candidate)) {
+                alreadySaved = true;
+                break;
+            }
+        }
+        if (alreadySaved) {
+            printInputError("[" + candidate + "] is already saved. Use modify password instead.");
+            continue;
+        }
+
+        websiteName = candidate;
+        return true;
+    }
+}
+
+bool readEmail(const string& prompt, string& email) {
+    while (true) {
+        cout << prompt;
+        string input;
+        if (!getline(cin, input)) {
+            return false;
+        }
+
+        const string candidate = trimText(input);
+        if (!isValidEmail(candidate)) {
+            printInputError("Invalid email. It needs exactly one '@' and a domain, e.g. user@example.com.");
+            continue;
+        }
+
+        email = candidate;
+        return true;
+    }
+}
+
+// Asks for the default 12 characters first and only then offers a custom
+// length, reprompting instead of silently falling back on bad input.
+bool choosePasswordLength(int& length) {
+    bool useDefault;
+    if (!promptYesNo("Use the default password length (12 characters)? (y/n): ", useDefault)) {
+        return false;
+    }
+    if (useDefault) {
+        length = 12;
+        return true;
+    }
+
+    while (true) {
+        cout << "Enter desired password length (min 8, max 25): ";
+        string input;
+        if (!getline(cin, input)) {
+            return false;
+        }
+
+        const string candidate = trimText(input);
+        if (!candidate.empty()) {
+            try {
+                size_t charactersRead = 0;
+                const int parsed = stoi(candidate, &charactersRead);
+                if (charactersRead == candidate.size() && parsed >= 8 && parsed <= 25) {
+                    length = parsed;
+                    return true;
+                }
+            } catch (const invalid_argument&) {
+            } catch (const out_of_range&) {
+            }
+        }
+
+        printInputError("Invalid length. Please enter a whole number between 8 and 25.");
     }
 }
 
@@ -136,8 +339,9 @@ void addPassword(const string& currentUserEmail) {
     cout << "                                  [1] Add Password                                 " << endl;
     cout << border << "\n";
 
-    cout << "Enter App / Website Name: ";
-    getline(cin, cred.appName);
+    if (!readWebsiteName(loadSavedPasswords(currentUserEmail), cred.appName)) {
+        return;
+    }
 
     if (!promptYesNo("Link your logged in email (" + currentUserEmail + ") to this app? (y/n): ",
                      useCurrentEmail)) {
@@ -146,8 +350,7 @@ void addPassword(const string& currentUserEmail) {
     if (useCurrentEmail) {
         cred.email = currentUserEmail;
     } else {
-        cout << "Enter custom email / username for " << cred.appName << ": ";
-        if (!getline(cin, cred.email)) return;
+        if (!readEmail("Enter custom email for " + cred.appName + ": ", cred.email)) return;
     }
 
     bool generatePassword;
@@ -158,29 +361,14 @@ void addPassword(const string& currentUserEmail) {
         passwordGenerator generator;
         passwordOptions options;
 
-        cout << "Enter desired length (default 12, min 8, max 25): ";
-        string lenStr;
-        if (!getline(cin, lenStr)) return;
-        bool validLength = false;
-        if (!lenStr.empty()) {
-            try {
-                size_t charactersRead = 0;
-                const int length = stoi(lenStr, &charactersRead);
-                if (charactersRead == lenStr.size() && length >= 8 && length <= 25) {
-                    options.length = length;
-                    validLength = true;
-                }
-            } catch (const invalid_argument&) {
-            } catch (const out_of_range&) {
-            } //nag try catch lang to para di mag-crash yung program pag may invalid input
+        int length = 12;
+        if (!choosePasswordLength(length)) {
+            return;
         }
-        if (!validLength) {
-            cout << "Invalid or missing length. Using the default length of 12.\n";
-            options.length = 12;
-        }
+        options.length = length;
 
         cred.password = generator.generate(options);
-        cout << "Generated Password: " << cred.password << "\n";
+        cout << "\nGenerated Password: " << cred.password << "\n";
     } else {
         cout << "Enter Password: ";
         if (!getline(cin, cred.password)) return;
@@ -215,14 +403,6 @@ vector<Credential> loadSavedPasswords(const string& userEmail) {
         credentials.push_back(credential);
     }
     return credentials;
-}
-
-string lowercaseText(string value) {
-    transform(value.begin(), value.end(), value.begin(),
-              [](unsigned char character) {
-                  return static_cast<char>(tolower(character));
-              });
-    return value;
 }
 
 void showSavedPasswords(const vector<Credential>& credentials) {
@@ -264,7 +444,7 @@ void browsePasswordManager(const string& currentUserEmail) {
         return;
     }
 
-    cout << "Search app / website or email (leave blank to show all): ";
+    cout << "Search website or email (leave blank to show all): ";
     string searchTerm;
     getline(cin, searchTerm);
 
@@ -385,13 +565,11 @@ void modifyPassword(const string& currentUserEmail) {
     }
 
     Credential& cred = credentials[selected];
-    const Credential original = cred; // para may reference sa default values
 
-    cout << "\nModifying [" << original.appName << "] information for " << original.email << "\n";
-    cout << "Leave a field blank to keep its current value.\n";
-    cout << "Email / Username (" << original.email << "): ";
-    getline(cin, input);
-    if (!input.empty()) cred.email = input;
+    cout << "\nModifying entry " << (selected + 1) << " of " << credentials.size() << "\n";
+    cout << "Website: " << cred.appName << "   (cannot be changed)\n";
+    cout << "Email: " << cred.email << "   (cannot be changed)\n";
+    cout << "Only the password can be modified.\n";
 
     bool generatePassword;
     if (!promptYesNo("Do you want to generate a new password? (y/n): ",
@@ -402,21 +580,11 @@ void modifyPassword(const string& currentUserEmail) {
         passwordGenerator generator;
         passwordOptions options;
 
-        cout << "Enter desired length (default 12, min 8, max 25): ";
-        string lenStr;
-        getline(cin, lenStr);
-        options.length = 12;
-        if (!lenStr.empty()) {
-            try {
-                size_t charactersRead = 0;
-                const int len = stoi(lenStr, &charactersRead);
-                if (charactersRead == lenStr.size() && len >= 8 && len <= 25) {
-                    options.length = len;
-                }
-            } catch (...) {
-                options.length = 12;
-            }
+        int length = 12;
+        if (!choosePasswordLength(length)) {
+            return;
         }
+        options.length = length;
 
         cred.password = generator.generate(options);
         cout << "\nGenerated Password: " << cred.password << "\n";
@@ -468,7 +636,7 @@ void passwordManagerMenu(const string& currentUserEmail) {
         } else if (choice == "0") {
             return;
         } else {
-            cout << "\nInvalid menu choice. Please choose 1, 2, 3, 4, or 0.\n";
+            printInputError("Invalid menu choice. Please choose 1, 2, 3, 4, or 0.");
         }
     }
 }
