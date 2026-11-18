@@ -360,12 +360,95 @@ void deletePassword(const string& currentUserEmail) {
     }
 }
 
+void modifyPassword(const string& currentUserEmail) {
+    vector<Credential> credentials = loadSavedPasswords(currentUserEmail);
+
+    cout << "\n" << border << endl;
+    cout << "                    [4] Modify Password" << endl;
+    cout << border << endl;
+    showSavedPasswords(credentials);
+    if (credentials.empty()) {
+        return;
+    }
+
+    cout << "Enter the entry number to modify, or 0 to cancel: ";
+    string input;
+    getline(cin, input);
+    if (input == "0") {
+        return;
+    }
+
+    size_t selected = 0;
+    if (!getEntryNumber(input, credentials.size(), selected)) {
+        cout << "Invalid entry number. Nothing was modified.\n";
+        return;
+    }
+
+    Credential& cred = credentials[selected];
+    const Credential original = cred; // para may reference sa default values
+
+    cout << "Modifying [" << original.appName << "] " << original.email << "\n";
+    cout << "Leave a field blank to keep its current value.\n";
+
+    cout << "App / Website Name (" << original.appName << "): ";
+    getline(cin, input);
+    if (!input.empty()) cred.appName = input;
+
+    cout << "Email / Username (" << original.email << "): ";
+    getline(cin, input);
+    if (!input.empty()) cred.email = input;
+
+    cout << "Do you want to generate a new password? (y/n): ";
+    getline(cin, input);
+    if (input == "y" || input == "Y") {
+        passwordGenerator generator;
+        passwordOptions options;
+
+        cout << "Enter desired length (default 12, min 8, max 25): ";
+        string lenStr;
+        getline(cin, lenStr);
+        options.length = 12;
+        if (!lenStr.empty()) {
+            try {
+                size_t charactersRead = 0;
+                const int len = stoi(lenStr, &charactersRead);
+                if (charactersRead == lenStr.size() && len >= 8 && len <= 25) {
+                    options.length = len;
+                }
+            } catch (...) {
+                options.length = 12;
+            }
+        }
+
+        cred.password = generator.generate(options);
+        cout << "Generated Password: " << cred.password << "\n";
+    } else {
+        cout << "Enter new password (leave blank to keep current): ";
+        getline(cin, input);
+        if (!input.empty()) cred.password = input;
+    }
+
+    cout << "Save changes to [" << cred.appName << "]? (y/n): ";
+    getline(cin, input);
+    if (input != "y" && input != "Y") {
+        cout << "Modification cancelled. Nothing was changed.\n";
+        return;
+    }
+
+    if (rewritePasswordFile(currentUserEmail, credentials)) {
+        cout << "Updated [" << cred.appName << "] successfully.\n";
+    } else {
+        cout << "Error: Could not update the password file.\n";
+    }
+}
+
 void passwordManagerMenu(const string& currentUserEmail) {
     while (true) {
         cout << "\n" << border << endl;
         cout << "                  LOCAL PASSWORD MANAGER" << endl;
         cout << border << endl;
         cout << "[3] Add password" << endl;
+        cout << "[4] Modify password" << endl;
         cout << "[5] Delete password" << endl;
         cout << "[6] Browse manager" << endl;
         cout << "[7] Logout" << endl;
@@ -375,6 +458,9 @@ void passwordManagerMenu(const string& currentUserEmail) {
         getline(cin, choice);
         if (choice == "3") {
             addPassword(currentUserEmail);
+        } else if (choice == "4") {
+            modifyPassword(currentUserEmail);
+        } else if (choice == "5") {
         } else if (choice == "5") {
             deletePassword(currentUserEmail);
         } else if (choice == "6") {
