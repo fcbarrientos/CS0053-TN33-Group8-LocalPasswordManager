@@ -370,6 +370,120 @@ void addPassword(const string& currentUserEmail) {
     cout << "\nPassword for [" << cred.appName << "] successfully saved!\n";
 }
 
+void showSavedPasswords(const vector<Credential>& credentials) {
+    if (credentials.empty()) {
+        cout << "No saved passwords found.\n";
+        return;
+    }
+
+    cout << "\nSaved accounts (passwords are hidden):\n";
+    for (size_t i = 0; i < credentials.size(); ++i) {
+        cout << i + 1 << ". [" << credentials[i].appName << "] " << credentials[i].email << " | ********\n";
+    }
+}
+
+bool getEntryNumber(const string& input, size_t entryCount, size_t& selected) {
+    try {
+        size_t charactersRead = 0;
+        const unsigned long number = stoul(input, &charactersRead);
+        if (charactersRead != input.size() || number == 0 || number > entryCount) {
+            return false;
+        }
+        selected = static_cast<size_t>(number - 1);
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+// PART 6: Browse saved passwords without revealing passwords by default.
+vector<Credential> loadSavedPasswords(const string& userEmail) {
+    vector<Credential> credentials;
+    ifstream file(userEmail + ".txt");
+    string line;
+
+    while (getline(file, line)) {
+        const size_t appEnd = line.find("] ");
+        if (line.empty() || line.front() != '[' || appEnd == string::npos) {
+            continue;
+        }
+
+        const size_t emailStart = appEnd + 2;
+        const size_t separator = line.find(" | ", emailStart);
+        if (separator == string::npos) {
+            continue;
+        }
+
+        Credential credential;
+        credential.appName = line.substr(1, appEnd - 1);
+        credential.email = line.substr(emailStart, separator - emailStart);
+        credential.password = line.substr(separator + 3);
+        credentials.push_back(credential);
+    }
+    return credentials;
+}
+
+void browsePasswordManager(const string& currentUserEmail) {
+    const vector<Credential> allCredentials = loadSavedPasswords(currentUserEmail);
+
+    cout << "\n" << border << endl;
+    cout << "                           [4] Browse Password Manager                           " << endl;
+    cout << border << endl;
+
+    if (allCredentials.empty()) {
+        cout << "No saved passwords found.\n";
+        return;
+    }
+
+    cout << "Search website or email (leave blank to show all): ";
+    string searchTerm;
+    getline(cin, searchTerm);
+
+    const string searchText = lowercaseText(searchTerm);
+    vector<Credential> matchingCredentials;
+    for (const Credential& credential : allCredentials) {
+        if (searchText.empty() || lowercaseText(credential.appName).find(searchText) != string::npos ||
+            lowercaseText(credential.email).find(searchText) != string::npos) {
+            matchingCredentials.push_back(credential);
+        }
+    }
+
+    if (matchingCredentials.empty()) {
+        cout << "\nNo matching accounts found.\n";
+        return;
+    }
+
+    showSavedPasswords(matchingCredentials);
+    cout << "Enter an entry number to view its password, or 0 to return: ";
+    string input;
+    getline(cin, input);
+    if (input == "0") {
+        return;
+    }
+
+    size_t selected = 0;
+    if (!getEntryNumber(input, matchingCredentials.size(), selected)) {
+        cout << "\nInvalid entry number. Returning to the menu.\n";
+        return;
+    }
+
+    cout << "Password for [" << matchingCredentials[selected].appName << "]: " << matchingCredentials[selected].password
+         << '\n';
+}
+
+// PART 5: Delete one saved password after displaying a masked list and confirmation.
+bool rewritePasswordFile(const string& userEmail, const vector<Credential>& credentials) {
+    ofstream file(userEmail + ".txt", ios::trunc);
+    if (!file.is_open()) {
+        return false;
+    }
+
+    for (const Credential& credential : credentials) {
+        file << "[" << credential.appName << "] " << credential.email << " | " << credential.password << '\n';
+    }
+    return true;
+}
+
 void modifyPassword(const string& currentUserEmail) {
     vector<Credential> credentials = loadSavedPasswords(currentUserEmail);
 
@@ -438,120 +552,6 @@ void modifyPassword(const string& currentUserEmail) {
     } else {
         cout << "\nError: Could not update the password file.\n";
     }
-}
-
-// PART 6: Browse saved passwords without revealing passwords by default.
-vector<Credential> loadSavedPasswords(const string& userEmail) {
-    vector<Credential> credentials;
-    ifstream file(userEmail + ".txt");
-    string line;
-
-    while (getline(file, line)) {
-        const size_t appEnd = line.find("] ");
-        if (line.empty() || line.front() != '[' || appEnd == string::npos) {
-            continue;
-        }
-
-        const size_t emailStart = appEnd + 2;
-        const size_t separator = line.find(" | ", emailStart);
-        if (separator == string::npos) {
-            continue;
-        }
-
-        Credential credential;
-        credential.appName = line.substr(1, appEnd - 1);
-        credential.email = line.substr(emailStart, separator - emailStart);
-        credential.password = line.substr(separator + 3);
-        credentials.push_back(credential);
-    }
-    return credentials;
-}
-
-void showSavedPasswords(const vector<Credential>& credentials) {
-    if (credentials.empty()) {
-        cout << "No saved passwords found.\n";
-        return;
-    }
-
-    cout << "\nSaved accounts (passwords are hidden):\n";
-    for (size_t i = 0; i < credentials.size(); ++i) {
-        cout << i + 1 << ". [" << credentials[i].appName << "] " << credentials[i].email << " | ********\n";
-    }
-}
-
-bool getEntryNumber(const string& input, size_t entryCount, size_t& selected) {
-    try {
-        size_t charactersRead = 0;
-        const unsigned long number = stoul(input, &charactersRead);
-        if (charactersRead != input.size() || number == 0 || number > entryCount) {
-            return false;
-        }
-        selected = static_cast<size_t>(number - 1);
-        return true;
-    } catch (...) {
-        return false;
-    }
-}
-
-void browsePasswordManager(const string& currentUserEmail) {
-    const vector<Credential> allCredentials = loadSavedPasswords(currentUserEmail);
-
-    cout << "\n" << border << endl;
-    cout << "                           [4] Browse Password Manager                           " << endl;
-    cout << border << endl;
-
-    if (allCredentials.empty()) {
-        cout << "No saved passwords found.\n";
-        return;
-    }
-
-    cout << "Search website or email (leave blank to show all): ";
-    string searchTerm;
-    getline(cin, searchTerm);
-
-    const string searchText = lowercaseText(searchTerm);
-    vector<Credential> matchingCredentials;
-    for (const Credential& credential : allCredentials) {
-        if (searchText.empty() || lowercaseText(credential.appName).find(searchText) != string::npos ||
-            lowercaseText(credential.email).find(searchText) != string::npos) {
-            matchingCredentials.push_back(credential);
-        }
-    }
-
-    if (matchingCredentials.empty()) {
-        cout << "\nNo matching accounts found.\n";
-        return;
-    }
-
-    showSavedPasswords(matchingCredentials);
-    cout << "Enter an entry number to view its password, or 0 to return: ";
-    string input;
-    getline(cin, input);
-    if (input == "0") {
-        return;
-    }
-
-    size_t selected = 0;
-    if (!getEntryNumber(input, matchingCredentials.size(), selected)) {
-        cout << "\nInvalid entry number. Returning to the menu.\n";
-        return;
-    }
-
-    cout << "Password for [" << matchingCredentials[selected].appName << "]: " << matchingCredentials[selected].password
-         << '\n';
-}
-
-// PART 5: Delete one saved password after displaying a masked list and confirmation.
-bool rewritePasswordFile(const string& userEmail, const vector<Credential>& credentials) {
-    ofstream file(userEmail + ".txt", ios::trunc);
-    if (!file.is_open()) {
-        return false;
-    }
-
-    for (const Credential& credential : credentials) {
-        file << "[" << credential.appName << "] " << credential.email << " | " << credential.password << '\n';
-    }
-    return true;
 }
 
 void deletePassword(const string& currentUserEmail) {
