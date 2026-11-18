@@ -1,6 +1,6 @@
 #include <iostream>
 #include <fstream>
-#include <string> 
+#include <string>
 #include <vector>
 #include <chrono>
 #include <algorithm>
@@ -13,7 +13,8 @@ using namespace std;
 using Clock = chrono::steady_clock;
 
 const string border = "=================================================================================";
-const string usersFileDB = "test_acc/users.txt"; //I will only add my fake credentials here sa file, add yours na lang guys
+const string usersFileDB =
+    "test_acc/users.txt"; //I will only add my fake credentials here sa file, add yours na lang guys
 const int maxAttempts = 3;
 const chrono::seconds lockoutDuration(15);
 struct Credential {
@@ -22,8 +23,7 @@ struct Credential {
     string appName;
 }; //naka-structure para nasa iisang unit lang tong dalawa since codependent sila sa isa't isa
 
-
-vector<Credential> loadUsersFromTextDB(const string& filename) { //I used vector instead of an array kasi suggested 
+vector<Credential> loadUsersFromTextDB(const string& filename) { //I used vector instead of an array kasi suggested
     vector<Credential> users;
     ifstream file(filename);
     Credential u;
@@ -47,32 +47,36 @@ bool userLogin(const vector<Credential>& users, string& emailLoggedIn) {
     static Clock::time_point lockoutUntil = Clock::time_point::min();
     string email, password;
 
-    //etong block for lockout mechanism, i tried using threads para sa countdown pero d ko ma-implement  
+    //etong block for lockout mechanism, i tried using threads para sa countdown pero d ko ma-implement
     if (Clock::now() < lockoutUntil) {
         return false;
     }
-    if (attempts >= maxAttempts) attempts = 0; //reset attempts after isang lockout period
-    
+    if (attempts >= maxAttempts)
+        attempts = 0; //reset attempts after isang lockout period
+
     cout << "\n" << border << endl;
     cout << "                   Welcome User! Enter Credentials to Sign-in                    " << endl;
     cout << border << endl;
-    cout << "Email: "; getline(cin, email);
-    cout << "Password: "; getline(cin, password);
-    
-    if (!cin) return false; //input failure 
+    cout << "Email: ";
+    getline(cin, email);
+    cout << "Password: ";
+    getline(cin, password);
+
+    if (!cin)
+        return false; //input failure
 
     if (credentialsMatch(email, password, users)) {
-            attempts = 0; //reset attempts on successful login
-            emailLoggedIn = email;
-            cout << "Login Successful!" << endl;
-            return true;
+        attempts = 0; //reset attempts on successful login
+        emailLoggedIn = email;
+        cout << "Login Successful!" << endl;
+        return true;
     } else {
         attempts++;
         cout << "Login Failed! You have used " << attempts << " of " << maxAttempts << " attempts." << endl;
-            if (attempts >= maxAttempts) {
-                lockoutUntil = Clock::now() + lockoutDuration;
-                cout << "Too many failed attempts. Wait for 15 seconds before trying again." << endl;
-            }
+        if (attempts >= maxAttempts) {
+            lockoutUntil = Clock::now() + lockoutDuration;
+            cout << "Too many failed attempts. Wait for 15 seconds before trying again." << endl;
+        }
     }
 
     return false;
@@ -91,16 +95,12 @@ string trimText(const string& value) {
 
 string lowercaseText(string value) {
     transform(value.begin(), value.end(), value.begin(),
-              [](unsigned char character) {
-                  return static_cast<char>(tolower(character));
-              });
+              [](unsigned char character) { return static_cast<char>(tolower(character)); });
     return value;
 }
 
 // every rejection gets its own paragraph and space
-void printInputError(const string& message) {
-    cout << "\n" << message << "\n\n";
-}
+void printInputError(const string& message) { cout << "\n" << message << "\n\n"; }
 
 bool promptYesNo(const string& prompt, bool& answer) {
     while (true) {
@@ -178,9 +178,7 @@ bool isValidHostname(const string& host) {
 // Website names are stored as the user types them (Google.com, not google.com),
 // but anything that could break the "[app] email | password" file format
 // or the domain shape is rejected.
-bool isValidWebsiteName(const string& name) {
-    return isValidHostname(name);
-}
+bool isValidWebsiteName(const string& name) { return isValidHostname(name); }
 
 bool isValidEmail(const string& email) {
     if (email.empty() || email.size() > 254) {
@@ -197,8 +195,7 @@ bool isValidEmail(const string& email) {
     if (local.empty() || local.size() > 64) {
         return false;
     }
-    if (local.front() == '.' || local.back() == '.' ||
-        local.find("..") != string::npos) {
+    if (local.front() == '.' || local.back() == '.' || local.find("..") != string::npos) {
         return false;
     }
     for (char character : local) {
@@ -300,7 +297,7 @@ bool choosePasswordLength(int& length) {
 }
 
 bool userLogout() {
-    cout << "\n";    
+    cout << "\n";
     cout << "                            You have been logged out.                            " << endl;
     cout << border << endl;
 
@@ -315,7 +312,7 @@ bool userLogout() {
 }
 
 // YOOHOO DITO SI SAVING CONTENT TO FILE
-void saveCredentialToFile(const string& userEmail, Credential &cred) {
+void saveCredentialToFile(const string& userEmail, Credential& cred) {
     // [GOOGLE.COM] usernumber1@yahoo.com | passwordnumber1HEHE!
     string filename = userEmail + ".txt";
     ofstream outFile(filename, ios::app); // append
@@ -339,14 +336,14 @@ void addPassword(const string& currentUserEmail) {
         return;
     }
 
-    if (!promptYesNo("Link your logged in email (" + currentUserEmail + ") to this app? (y/n): ",
-                     useCurrentEmail)) {
+    if (!promptYesNo("Link your logged in email (" + currentUserEmail + ") to this app? (y/n): ", useCurrentEmail)) {
         return;
     }
     if (useCurrentEmail) {
         cred.email = currentUserEmail;
     } else {
-        if (!readEmail("Enter custom email for " + cred.appName + ": ", cred.email)) return;
+        if (!readEmail("Enter custom email for " + cred.appName + ": ", cred.email))
+            return;
     }
 
     bool generatePassword;
@@ -367,9 +364,10 @@ void addPassword(const string& currentUserEmail) {
         cout << "\nGenerated Password: " << cred.password << "\n";
     } else {
         cout << "Enter Password: ";
-        if (!getline(cin, cred.password)) return;
+        if (!getline(cin, cred.password))
+            return;
     }
-    
+
     saveCredentialToFile(currentUserEmail, cred);
     cout << "\nPassword for [" << cred.appName << "] successfully saved!\n";
 }
@@ -409,8 +407,7 @@ void showSavedPasswords(const vector<Credential>& credentials) {
 
     cout << "\nSaved accounts (passwords are hidden):\n";
     for (size_t i = 0; i < credentials.size(); ++i) {
-        cout << i + 1 << ". [" << credentials[i].appName << "] "
-             << credentials[i].email << " | ********\n";
+        cout << i + 1 << ". [" << credentials[i].appName << "] " << credentials[i].email << " | ********\n";
     }
 }
 
@@ -447,8 +444,7 @@ void browsePasswordManager(const string& currentUserEmail) {
     const string searchText = lowercaseText(searchTerm);
     vector<Credential> matchingCredentials;
     for (const Credential& credential : allCredentials) {
-        if (searchText.empty() ||
-            lowercaseText(credential.appName).find(searchText) != string::npos ||
+        if (searchText.empty() || lowercaseText(credential.appName).find(searchText) != string::npos ||
             lowercaseText(credential.email).find(searchText) != string::npos) {
             matchingCredentials.push_back(credential);
         }
@@ -473,21 +469,19 @@ void browsePasswordManager(const string& currentUserEmail) {
         return;
     }
 
-    cout << "Password for [" << matchingCredentials[selected].appName << "]: "
-         << matchingCredentials[selected].password << '\n';
+    cout << "Password for [" << matchingCredentials[selected].appName << "]: " << matchingCredentials[selected].password
+         << '\n';
 }
 
 // PART 5: Delete one saved password after displaying a masked list and confirmation.
-bool rewritePasswordFile(const string& userEmail,
-                         const vector<Credential>& credentials) {
+bool rewritePasswordFile(const string& userEmail, const vector<Credential>& credentials) {
     ofstream file(userEmail + ".txt", ios::trunc);
     if (!file.is_open()) {
         return false;
     }
 
     for (const Credential& credential : credentials) {
-        file << "[" << credential.appName << "] " << credential.email
-             << " | " << credential.password << '\n';
+        file << "[" << credential.appName << "] " << credential.email << " | " << credential.password << '\n';
     }
     return true;
 }
@@ -517,15 +511,14 @@ void deletePassword(const string& currentUserEmail) {
     }
 
     bool confirmDelete;
-    if (!promptYesNo("Delete [" + credentials[selected].appName + "] " +
-                     credentials[selected].email + "? (y/n): ",
+    if (!promptYesNo("Delete [" + credentials[selected].appName + "] " + credentials[selected].email + "? (y/n): ",
                      confirmDelete)) {
         return;
     }
     if (!confirmDelete) {
         cout << "\nDeletion cancelled.\n";
         return;
-    } 
+    }
 
     const string deletedApp = credentials[selected].appName;
     credentials.erase(credentials.begin() + static_cast<long>(selected));
@@ -568,8 +561,7 @@ void modifyPassword(const string& currentUserEmail) {
     cout << "Only the password can be modified.\n";
 
     bool generatePassword;
-    if (!promptYesNo("Do you want to generate a new password? (y/n): ",
-                     generatePassword)) {
+    if (!promptYesNo("Do you want to generate a new password? (y/n): ", generatePassword)) {
         return;
     }
     if (generatePassword) {
@@ -587,12 +579,12 @@ void modifyPassword(const string& currentUserEmail) {
     } else {
         cout << "Enter new password (leave blank to keep current): ";
         getline(cin, input);
-        if (!input.empty()) cred.password = input;
+        if (!input.empty())
+            cred.password = input;
     }
 
     bool saveChanges;
-    if (!promptYesNo("Save changes to [" + cred.appName + "]? (y/n): ",
-                     saveChanges)) {
+    if (!promptYesNo("Save changes to [" + cred.appName + "]? (y/n): ", saveChanges)) {
         return;
     }
     if (!saveChanges) {
@@ -641,12 +633,14 @@ int main() {
     //GENERATED THIS IS FOR TESTING PURPOSES HUHU, D MUNA AKO GUMAWA NG MENU
     bool running = true;
     while (running) {
-        vector<Credential> users = loadUsersFromTextDB(usersFileDB);   // reloaded each round
-        if (users.empty()) return 1;
+        vector<Credential> users = loadUsersFromTextDB(usersFileDB); // reloaded each round
+        if (users.empty())
+            return 1;
 
         string currentUser;
         while (!userLogin(users, currentUser)) {
-            if (!cin) return 0;
+            if (!cin)
+                return 0;
         }
 
         passwordManagerMenu(currentUser);
