@@ -5,6 +5,7 @@
 #include <chrono>
 #include <algorithm>
 #include <cctype>
+#include <stdexcept>
 
 #include "password-generator/passwordgen.h"
 
@@ -12,7 +13,7 @@ using namespace std;
 using Clock = chrono::steady_clock;
 
 const string border = "==================================================================";
-const string usersFileDB = "users.txt"; //I will only add my fake credentials here sa file, add yours na lang guys
+const string usersFileDB = "test_acc/users.txt"; //I will only add my fake credentials here sa file, add yours na lang guys
 const int maxAttempts = 3;
 const chrono::seconds lockoutDuration(15);
 struct Credential {
@@ -78,29 +79,40 @@ bool userLogin(const vector<Credential>& users, string& emailLoggedIn) {
     return false;
 }
 
+bool promptYesNo(const string& prompt, bool& answer) {
+    string choice;
+    while (true) {
+        cout << prompt;
+        if (!getline(cin, choice)) {
+            return false;
+        }
+
+        if (choice == "y" || choice == "Y") {
+            answer = true;
+            return true;
+        }
+        if (choice == "n" || choice == "N") {
+            answer = false;
+            return true;
+        }
+
+        cout << "Invalid input. Please enter 'y' or 'n'." << endl;
+    }
+}
+
 bool userLogout() {
     cout << "\n";    
     cout << "                     You have been logged out.                    " << endl;
     cout << border << endl;
 
-    string choice;
-    while (true) {
-        cout << "Do you want to log in again? (y/n): "; 
-        if (!getline(cin, choice)) {
-            return false;
-        } else {
-            if (choice == "y" || choice == "Y") {
-                return true; 
-            }
-            else if (choice == "n" || choice == "N") {
-                cout << "Thank you for using LPMS! Bye :)" << endl; //LMPS muna hahaha abbreviation 
-                return false; 
-            }
-            else {
-                cout << "Invalid input. Please enter 'y' or 'n'." << endl; 
-            }
-        }
+    bool logInAgain;
+    if (!promptYesNo("Do you want to log in again? (y/n): ", logInAgain)) {
+        return false;
     }
+    if (!logInAgain) {
+        cout << "Thank you for using LPMS! Bye :)" << endl;
+    }
+    return logInAgain;
 }
 
 // YOOHOO DITO SI SAVING CONTENT TO FILE
@@ -118,7 +130,7 @@ void saveCredentialToFile(const string& userEmail, Credential &cred) {
 
 void addPassword(const string& currentUserEmail) {
     Credential cred;
-    string choice;
+    bool useCurrentEmail;
 
     cout << "\n" << border << "\n";
     cout << "                   [3] Add Password\n";
@@ -127,29 +139,43 @@ void addPassword(const string& currentUserEmail) {
     cout << "Enter App / Website Name: ";
     getline(cin, cred.appName);
 
-    cout << "Link oyur logged in email (" << currentUserEmail << ") to this app? (y/n): ";
-    getline(cin, choice);
-    if (choice == "y" || choice == "Y") {
+    if (!promptYesNo("Link your logged in email (" + currentUserEmail + ") to this app? (y/n): ",
+                     useCurrentEmail)) {
+        return;
+    }
+    if (useCurrentEmail) {
         cred.email = currentUserEmail;
     } else {
         cout << "Enter custom email / username for " << cred.appName << ": ";
-        getline(cin, cred.email);
+        if (!getline(cin, cred.email)) return;
     }
 
-    cout << "Do you want to generate a password? (y/n): ";
-    getline(cin, choice);
-
-    if (choice == "y" || choice == "Y") {
+    bool generatePassword;
+    if (!promptYesNo("Do you want to generate a password? (y/n): ", generatePassword)) {
+        return;
+    }
+    if (generatePassword) {
         passwordGenerator generator;
         passwordOptions options;
 
         cout << "Enter desired length (default 12, min 8, max 25): ";
         string lenStr;
-        getline(cin, lenStr);
+        if (!getline(cin, lenStr)) return;
+        bool validLength = false;
         if (!lenStr.empty()) {
-            int len = stoi(lenStr);
-            options.length = (len >= 8 && len <= 25) ? len : 12;
-        } else {
+            try {
+                size_t charactersRead = 0;
+                const int length = stoi(lenStr, &charactersRead);
+                if (charactersRead == lenStr.size() && length >= 8 && length <= 25) {
+                    options.length = length;
+                    validLength = true;
+                }
+            } catch (const invalid_argument&) {
+            } catch (const out_of_range&) {
+            } //nag try catch lang to para di mag-crash yung program pag may invalid input
+        }
+        if (!validLength) {
+            cout << "Invalid or missing length. Using the default length of 12.\n";
             options.length = 12;
         }
 
@@ -157,11 +183,11 @@ void addPassword(const string& currentUserEmail) {
         cout << "Generated Password: " << cred.password << "\n";
     } else {
         cout << "Enter Password: ";
-        getline(cin, cred.password);
+        if (!getline(cin, cred.password)) return;
     }
-
+    
     saveCredentialToFile(currentUserEmail, cred);
-    cout << "\Password for [" << cred.appName << "] successfully saved!\n";
+    cout << "\nPassword for [" << cred.appName << "] successfully saved!\n";
 }
 
 // PART 6: Browse saved passwords without revealing passwords by default.
@@ -314,14 +340,16 @@ void deletePassword(const string& currentUserEmail) {
         return;
     }
 
-    cout << "Delete [" << credentials[selected].appName << "] "
-         << credentials[selected].email << "? (y/n): ";
-    string confirmation;
-    getline(cin, confirmation);
-    if (confirmation != "y" && confirmation != "Y") {
-        cout << "Deletion cancelled.\n";
+    bool confirmDelete;
+    if (!promptYesNo("Delete [" + credentials[selected].appName + "] " +
+                     credentials[selected].email + "? (y/n): ",
+                     confirmDelete)) {
         return;
     }
+    if (!confirmDelete) {
+        cout << "Deletion cancelled.\n";
+        return;
+    } 
 
     const string deletedApp = credentials[selected].appName;
     credentials.erase(credentials.begin() + static_cast<long>(selected));
