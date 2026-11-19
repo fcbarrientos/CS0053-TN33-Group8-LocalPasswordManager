@@ -466,7 +466,7 @@ void browsePasswordManager(const string& currentUserEmail) {
         return;
     }
 
-    cout << "Password for [" << matchingCredentials[selected].appName << "]: " << matchingCredentials[selected].password
+    cout << "Password for [" << matchingCredentials[selected].appName << "] " << matchingCredentials[selected].email << ": " << matchingCredentials[selected].password
          << '\n';
 }
 
